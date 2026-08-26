@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Karaoke Pitch Trainer</title>
+<style>
+  :root {
+    --bg: #14171c;
+    --card: #1e2229;
+    --accent: #d4c04a;
+    --accent-dim: #6b632a;
+    --text: #eef0f2;
+    --text-dim: #9aa1ab;
+    --border: #2c313a;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    padding: 20px 16px 60px;
+  }
+  h1 {
+    font-size: 20px;
+    font-weight: 600;
+    margin: 0 0 4px;
+    letter-spacing: 0.2px;
+  }
+  .subtitle {
+    color: var(--text-dim);
+    font-size: 13px;
+    margin: 0 0 24px;
+  }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 18px;
+    margin-bottom: 16px;
+  }
+  .upload-btn {
+    display: block;
+    width: 100%;
+    text-align: center;
+    padding: 14px;
+    background: var(--accent);
+    color: #14171c;
+    border: none;
+    border-radius: 10px;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  input[type="file"] { display: none; }
+  .track-list { margin-top: 0; }
+  .track {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 4px;
+    border-bottom: 1px solid var(--border);
+    cursor: pointer;
+  }
+  .track:last-child { border-bottom: none; }
+  .track-name {
+    font-size: 14px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 220px;
+  }
+  .track.active .track-name { color: var(--accent); font-weight: 600; }
+  .track-delete {
+    color: var(--text-dim);
+    font-size: 13px;
+    padding: 4px 8px;
+  }
+  .empty-msg {
+    color: var(--text-dim);
+    font-size: 13px;
+    text-align: center;
+    padding: 8px 0;
+  }
+  .player-title {
+    font-size: 15px;
+    font-weight: 600;
+    margin-bottom: 18px;
+    color: var(--text-dim);
+  }
+  .player-title span { color: var(--text); }
+  .pitch-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 6px;
+  }
+  .pitch-label { font-size: 13px; color: var(--text-dim); }
+  .pitch-value {
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--accent);
+    font-variant-numeric: tabular-nums;
+  }
+  input[type="range"] {
+    width: 100%;
+    height: 36px;
+    -webkit-appearance: none;
+    background: transparent;
+    margin: 4px 0 4px;
+  }
+  input[type="range"]::-webkit-slider-runnable-track {
+    height: 4px;
+    background: var(--border);
+    border-radius: 2px;
+  }
+  input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    background: var(--accent);
+    margin-top: -11px;
+    border: 3px solid var(--bg);
+  }
+  .reset-pitch {
+    display: block;
+    margin: 0 auto 20px;
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-size: 12px;
+  }
+  .controls {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 24px;
+    margin-bottom: 16px;
+  }
+  .play-btn {
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    background: var(--accent);
+    border: none;
+    color: #14171c;
+    font-size: 22px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+  }
+  .loop-btn {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    font-size: 16px;
+    cursor: pointer;
+  }
+  .loop-btn.active { border-color: var(--accent); color: var(--accent); }
+  .seek-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 11px;
+    color: var(--text-dim);
+    font-variant-numeric: tabular-nums;
+  }
+  .seek-row input[type="range"] { height: 28px; }
+  .seek-row input[type="range"]::-webkit-slider-thumb { width: 16px; height: 16px; margin-top: -6px; }
+  .seek-row input[type="range"]::-webkit-slider-runnable-track { height: 4px; }
+  .hint {
+    font-size: 11px;
+    color: var(--text-dim);
+    text-align: center;
+    margin-top: 6px;
+  }
+</style>
+</head>
+<body>
+
+<h1>Karaoke Pitch Trainer</h1>
+<p class="subtitle">Carica un brano, trova la tua tonalità, fai pratica.</p>
+
+<div class="card">
+  <label class="upload-btn" for="fileInput">+ Carica audio o video</label>
+  <input type="file" id="fileInput" accept="audio/*,video/*" multiple>
+  <div class="track-list" id="trackList">
+    <p class="empty-msg" id="emptyMsg">Nessun brano caricato</p>
+  </div>
+</div>
+
+<div class="card" id="playerCard" style="display:none;">
+  <div class="player-title">In riproduzione: <span id="currentTrackName"></span></div>
+
+  <div class="pitch-row">
+    <span class="pitch-label">Tonalità</span>
+    <span class="pitch-value" id="pitchValue">0</span>
+  </div>
+  <input type="range" id="pitchSlider" min="-12" max="12" step="1" value="0">
+  <button class="reset-pitch" id="resetPitch">Reimposta a 0</button>
+
+  <div class="controls">
+    <button class="loop-btn" id="loopBtn">⟲</button>
+    <button class="play-btn" id="playBtn">▶</button>
+    <div style="width:44px;"></div>
+  </div>
+
+  <div class="seek-row">
+    <span id="timeCurrent">0:00</span>
+    <input type="range" id="seekSlider" min="0" max="100" step="0.1" value="0">
+    <span id="timeTotal">0:00</span>
+  </div>
+  <p class="hint">La tonalità salvata resta associata a questo brano</p>
+</div>
+
+<script>
+const DB_NAME = 'karaokeDB';
+const STORE_NAME = 'tracks';
+let db;
+
+function openDB() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(DB_NAME, 1);
+    req.onupgradeneeded = (e) => {
+      const database = e.target.result;
+      if (!database.objectStoreNames.contains(STORE_NAME)) {
+        database.createObjectStore(STORE_NAME, { keyPath: 'id', autoIncrement: true });
+      }
+    };
+    req.onsuccess = (e) => resolve(e.target.result);
+    req.onerror = (e) => reject(e);
+  });
+}
+
+function addTrack(track) {
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE_NAME, 'readwrite');
+    const req = tx.objectStore(STORE_NAME).add(track);
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = (e) => reject(e);
+  });
+}
+
+function updateTrack(track) {
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE_NAME, 'readwrite');
+    const req = tx.objectStore(STORE_NAME).put(track);
+    req.onsuccess = () => resolve();
+    req.onerror = (e) => reject(e);
+  });
+}
+
+function deleteTrack(id) {
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE_NAME, 'readwrite');
+    const req = tx.objectStore(STORE_NAME).delete(id);
+    req.onsuccess = () => resolve();
+    req.onerror = (e) => reject(e);
+  });
+}
+
+function getAllTracks() {
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE_NAME, 'readonly');
+    const req = tx.objectStore(STORE_NAME).getAll();
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = (e) => reject(e);
+  });
+}
+
+let audioCtx;
+let currentSource = null;
+let currentBuffer = null;
+let currentPitchNode = null;
+let currentTrackId = null;
+let isPlaying = false;
+let isLooping = false;
+let startTime = 0;
+let pauseOffset = 0;
+let seekInterval = null;
+
+const fileInput = document.getElementById('fileInput');
+const trackListEl = document.getElementById('trackList');
+const emptyMsg = document.getElementById('emptyMsg');
+const playerCard = document.getElementById('playerCard');
+const currentTrackName = document.getElementById('currentTrackName');
+const pitchSlider = document.getElementById('pitchSlider');
+const pitchValue = document.getElementById('pitchValue');
+const resetPitch = document.getElementById('resetPitch');
+const playBtn = document.getElementById('playBtn');
+const loopBtn = document.getElementById('loopBtn');
+const seekSlider = document.getElementById('seekSlider');
+const timeCurrent = document.getElementById('timeCurrent');
+const timeTotal = document.getElementById('timeTotal');
+
+function formatTime(s) {
+  if (!isFinite(s)) return '0:00';
+  const m = Math.floor(s / 60);
+  const sec = Math.floor(s % 60);
+  return m + ':' + String(sec).padStart(2, '0');
+}
+
+async function renderTrackList() {
+  const tracks = await getAllTracks();
+  trackListEl.innerHTML = '';
+  if (tracks.length === 0) {
+    trackListEl.appendChild(emptyMsg);
+    return;
+  }
+  tracks.forEach(t => {
+    const row = document.createElement('div');
+    row.className = 'track' + (t.id === currentTrackId ? ' active' : '');
+    row.innerHTML = `<span class="track-name">${t.name}</span><span class="track-delete" data-id="${t.id}">Elimina</span>`;
+    row.addEventListener('click', (e) => {
+      if (e.target.classList.contains('track-delete')) return;
+      loadTrack(t);
+    });
+    row.querySelector('.track-delete').addEventListener('click', async (e) => {
+      e.stopPropagation();
+      stopPlayback();
+      await deleteTrack(t.id);
+      if (currentTrackId === t.id) {
+        playerCard.style.display = 'none';
+        currentTrackId = null;
+      }
+      renderTrackList();
+    });
+    trackListEl.appendChild(row);
+  });
+}
+
+fileInput.addEventListener('change', async (e) => {
+  const files = Array.from(e.target.files);
+  for (const file of files) {
+    const arrayBuffer = await file.arrayBuffer();
+    const track = { name: file.name, data: arrayBuffer, pitch: 0 };
+    await addTrack(track);
+  }
+  fileInput.value = '';
+  renderTrackList();
+});
+
+async function loadTrack(track) {
+  stopPlayback();
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  currentTrackId = track.id;
+  currentTrackName.textContent = track.name;
+  playerCard.style.display = 'block';
+
+  const decoded = await audioCtx.decodeAudioData(track.data.slice(0));
+  currentBuffer = decoded;
+  pauseOffset = 0;
+  isPlaying = false;
+  playBtn.textContent = '▶';
+
+  pitchSlider.value = track.pitch || 0;
+  pitchValue.textContent = (track.pitch > 0 ? '+' : '') + (track.pitch || 0);
+
+  seekSlider.max = decoded.duration;
+  seekSlider.value = 0;
+  timeCurrent.textContent = '0:00';
+  timeTotal.textContent = formatTime(decoded.duration);
+
+  renderTrackList();
+}
+
+function stopPlayback() {
+  if (currentSource) {
+    try { currentSource.onended = null; currentSource.stop(); } catch (e) {}
+    currentSource = null;
+  }
+  if (seekInterval) { clearInterval(seekInterval); seekInterval = null; }
+  isPlaying = false;
+  playBtn.textContent = '▶';
+}
+
+function playFrom(offset) {
+  if (!currentBuffer) return;
+  if (currentSource) {
+    try { currentSource.onended = null; currentSource.stop(); } catch (e) {}
+  }
+  currentSource = audioCtx.createBufferSource();
+  currentSource.buffer = currentBuffer;
+  currentSource.loop = false;
+
+  currentPitchNode = audioCtx.createGain();
+  const semitones = parseInt(pitchSlider.value, 10);
+  currentSource.detune.value = semitones * 100;
+
+  currentSource.connect(currentPitchNode).connect(audioCtx.destination);
+  currentSource.start(0, offset);
+  startTime = audioCtx.currentTime - offset;
+
+  currentSource.onended = () => {
+    if (!isPlaying) return;
+    if (isLooping) {
+      playFrom(0);
+    } else {
+      isPlaying = false;
+      playBtn.textContent = '▶';
+      pauseOffset = 0;
+      seekSlider.value = 0;
+      timeCurrent.textContent = '0:00';
+    }
+  };
+
+  isPlaying = true;
+  playBtn.textContent = '⏸';
+
+  if (seekInterval) clearInterval(seekInterval);
+  seekInterval = setInterval(() => {
+    if (!isPlaying) return;
+    const elapsed = audioCtx.currentTime - startTime;
+    if (elapsed <= currentBuffer.duration) {
+      seekSlider.value = elapsed;
+      timeCurrent.textContent = formatTime(elapsed);
+    }
+  }, 200);
+}
+
+playBtn.addEventListener('click', () => {
+  if (!currentBuffer) return;
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+  if (isPlaying) {
+    pauseOffset = audioCtx.currentTime - startTime;
+    if (currentSource) { currentSource.onended = null; try { currentSource.stop(); } catch(e){} }
+    isPlaying = false;
+    playBtn.textContent = '▶';
+    if (seekInterval) { clearInterval(seekInterval); seekInterval = null; }
+  } else {
+    playFrom(pauseOffset || 0);
+  }
+});
+
+loopBtn.addEventListener('click', () => {
+  isLooping = !isLooping;
+  loopBtn.classList.toggle('active', isLooping);
+});
+
+pitchSlider.addEventListener('input', async () => {
+  const semitones = parseInt(pitchSlider.value, 10);
+  pitchValue.textContent = (semitones > 0 ? '+' : '') + semitones;
+  if (currentSource) currentSource.detune.value = semitones * 100;
+  if (currentTrackId !== null) {
+    const tracks = await getAllTracks();
+    const t = tracks.find(x => x.id === currentTrackId);
+    if (t) { t.pitch = semitones; await updateTrack(t); }
+  }
+});
+
+resetPitch.addEventListener('click', () => {
+  pitchSlider.value = 0;
+  pitchSlider.dispatchEvent(new Event('input'));
+});
+
+seekSlider.addEventListener('input', () => {
+  timeCurrent.textContent = formatTime(parseFloat(seekSlider.value));
+});
+seekSlider.addEventListener('change', () => {
+  const offset = parseFloat(seekSlider.value);
+  pauseOffset = offset;
+  if (isPlaying) {
+    playFrom(offset);
+  }
+});
+
+(async () => {
+  db = await openDB();
+  renderTrackList();
+})();
+</script>
+
+</body>
+</html>
