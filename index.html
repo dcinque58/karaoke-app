@@ -134,6 +134,20 @@
     border: 3px solid var(--bg);
   }
   .volume-row input[type="range"]::-webkit-slider-thumb { width: 22px; height: 22px; margin-top: -9px; background: var(--text-dim); }
+  .pitch-stepper { display: flex; align-items: center; gap: 10px; }
+  .pitch-stepper input[type="range"] { flex: 1; }
+  .step-btn {
+    width: 40px; height: 40px;
+    border-radius: 50%;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--accent);
+    font-size: 20px;
+    font-weight: 600;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer;
+    flex-shrink: 0;
+  }
   .reset-pitch {
     display: block;
     margin: 0 auto 20px;
@@ -206,7 +220,11 @@
     <span class="label-text">Tonalità</span>
     <span class="label-value" id="pitchValue">0</span>
   </div>
-  <input type="range" id="pitchSlider" min="-12" max="12" step="1" value="0">
+  <div class="pitch-stepper">
+    <button class="step-btn" id="pitchMinus">−</button>
+    <input type="range" id="pitchSlider" min="-12" max="12" step="1" value="0">
+    <button class="step-btn" id="pitchPlus">+</button>
+  </div>
   <button class="reset-pitch" id="resetPitch">Reimposta a 0</button>
 
   <div class="controls">
@@ -233,6 +251,9 @@
 
   <p class="hint">Riproduzione attiva anche a schermo bloccato o app in background (su iPhone: aggiungi l'app alla Home per il miglior funzionamento)</p>
 </div>
+
+<audio id="silentKeepAlive" loop playsinline style="display:none;"
+  src="data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA="></audio>
 
 <script>
 const DB_NAME = 'karaokeDB';
@@ -511,6 +532,8 @@ function stopPlayback() {
   isPlaying = false;
   playBtn.textContent = '▶';
   if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'paused';
+  const ka = document.getElementById('silentKeepAlive');
+  if (ka) ka.pause();
 }
 
 function playFrom(offset) {
@@ -540,12 +563,15 @@ function playFrom(offset) {
       seekSlider.value = 0;
       timeCurrent.textContent = '0:00';
       if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'paused';
+      document.getElementById('silentKeepAlive').pause();
     }
   };
 
   isPlaying = true;
   playBtn.textContent = '⏸';
   if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'playing';
+  const keepAlive = document.getElementById('silentKeepAlive');
+  keepAlive.play().catch(() => {});
 
   if (seekInterval) clearInterval(seekInterval);
   seekInterval = setInterval(() => {
@@ -568,6 +594,7 @@ playBtn.addEventListener('click', () => {
     playBtn.textContent = '▶';
     if (seekInterval) { clearInterval(seekInterval); seekInterval = null; }
     if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'paused';
+    document.getElementById('silentKeepAlive').pause();
   } else {
     playFrom(pauseOffset || 0);
   }
@@ -590,6 +617,17 @@ pitchSlider.addEventListener('input', async () => {
 
 resetPitch.addEventListener('click', () => {
   pitchSlider.value = 0;
+  pitchSlider.dispatchEvent(new Event('input'));
+});
+
+document.getElementById('pitchMinus').addEventListener('click', () => {
+  const v = Math.max(parseInt(pitchSlider.min, 10), parseInt(pitchSlider.value, 10) - 1);
+  pitchSlider.value = v;
+  pitchSlider.dispatchEvent(new Event('input'));
+});
+document.getElementById('pitchPlus').addEventListener('click', () => {
+  const v = Math.min(parseInt(pitchSlider.max, 10), parseInt(pitchSlider.value, 10) + 1);
+  pitchSlider.value = v;
   pitchSlider.dispatchEvent(new Event('input'));
 });
 
@@ -627,6 +665,7 @@ function updateMediaSession(name) {
       playBtn.textContent = '▶';
       if (seekInterval) { clearInterval(seekInterval); seekInterval = null; }
       navigator.mediaSession.playbackState = 'paused';
+      document.getElementById('silentKeepAlive').pause();
     }
   });
 }
